@@ -20,3 +20,10 @@ repos:
       - id: ruff
         args: [--exit-non-zero-on-fix]
       - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: "v1.16.0"
+    hooks:
+      - id: mypy
+        args: [--config-file=./pyproject.toml]
+        files: ^immoscout_scraper/*
