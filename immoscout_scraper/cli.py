@@ -5,9 +5,10 @@ from typing import Annotated, Optional
 
 import typer
 from furl import furl
+from rnet import Client, Impersonate
 
 from immoscout_scraper.db import PropertyDatabase
-from immoscout_scraper.scrape import ImmoscoutScraper, create_client
+from immoscout_scraper.scrape import ImmoscoutScraper
 from immoscout_scraper.url_conversion import convert_web_to_mobile
 
 app = typer.Typer(
@@ -15,6 +16,14 @@ app = typer.Typer(
     help="Scrape rental properties from ImmoScout24",
     add_completion=False,
 )
+
+
+def create_client() -> Client:
+    return Client(
+        impersonate=Impersonate.OkHttp5,
+        user_agent="ImmoScout24_1410_30_._",
+        timeout=30,
+    )
 
 
 def validate_url(url: str) -> str:

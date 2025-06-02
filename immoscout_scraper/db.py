@@ -11,10 +11,10 @@ class PropertyDatabase:
         self.cursor = self.connection.cursor()
         self._setup()
 
-    def _setup(self):
+    def _setup(self) -> None:
         self.cursor.execute("CREATE TABLE IF NOT EXISTS RawProperties (id INTEGER PRIMARY KEY, data JSON)")
 
-    def save_listings(self, listings: list[Listing]):
+    def save_listings(self, listings: list[Listing]) -> None:
         self.cursor.executemany(
             "INSERT INTO RawProperties VALUES (:listing_id, :data)",
             ({"listing_id": x.listing_id, "data": json.dumps(x.data)} for x in listings),

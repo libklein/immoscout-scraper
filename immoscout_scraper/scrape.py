@@ -4,20 +4,12 @@ import sys
 from collections.abc import AsyncGenerator
 
 from aiolimiter import AsyncLimiter
-from rnet import Client, Impersonate, Response
+from rnet import Client, Response
 
 from immoscout_scraper.models import Listing, ListingID
 from immoscout_scraper.url_conversion import get_expose_details_url, get_page_url
 
 logging.basicConfig(level=logging.INFO)
-
-
-def create_client() -> Client:
-    return Client(
-        impersonate=Impersonate.OkHttp5,
-        user_agent="ImmoScout24_1410_30_._",
-        timeout=30,
-    )
 
 
 def parse_listings_page(page_data: dict) -> set[ListingID]:
