@@ -2,6 +2,8 @@
 FROM python:3.12-slim
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
+ENV IMMOSCOUT_SCRAPER_OUTPUT_PATH=/out/properties.db
+
 # Change the working directory to the `app` directory
 WORKDIR /app
 
@@ -18,4 +20,4 @@ COPY . /app
 # Sync the project
 RUN uv sync --frozen
 
-CMD [ "python", "immoscout_scraper/foo.py" ]
+ENTRYPOINT ["uv", "run", "immoscout-scraper"]

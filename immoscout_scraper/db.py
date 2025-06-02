@@ -1,7 +1,8 @@
-import sqlite3
-from immoscout_scraper.models import Listing, ListingID
-from pathlib import Path
 import json
+import sqlite3
+from pathlib import Path
+
+from immoscout_scraper.models import Listing, ListingID
 
 
 class PropertyDatabase:
@@ -16,9 +17,9 @@ class PropertyDatabase:
     def save_listings(self, listings: list[Listing]):
         self.cursor.executemany(
             "INSERT INTO RawProperties VALUES (:listing_id, :data)",
-            (dict(listing_id=x.listing_id, data=json.dumps(x.data)) for x in listings),
+            ({"listing_id": x.listing_id, "data": json.dumps(x.data)} for x in listings),
         )
         self.connection.commit()
 
     def fetch_saved_listing_ids(self) -> set[ListingID]:
-        return set(x[0] for x in self.cursor.execute("SELECT id FROM RawProperties").fetchall())
+        return {x[0] for x in self.cursor.execute("SELECT id FROM RawProperties").fetchall()}

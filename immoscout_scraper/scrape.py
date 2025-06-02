@@ -1,12 +1,13 @@
-from immoscout_scraper.url_conversion import get_expose_details_url, get_page_url
-from rnet import Impersonate, Client, Response
 import asyncio
-import tenacity
-from aiolimiter import AsyncLimiter
 import logging
-from typing import AsyncGenerator
-from immoscout_scraper.models import ListingID, Listing
-from immoscout_scraper.db import PropertyDatabase
+import sys
+from collections.abc import AsyncGenerator
+
+from aiolimiter import AsyncLimiter
+from rnet import Client, Impersonate, Response
+
+from immoscout_scraper.models import Listing, ListingID
+from immoscout_scraper.url_conversion import get_expose_details_url, get_page_url
 
 logging.basicConfig(level=logging.INFO)
 
@@ -57,17 +58,16 @@ class ImmoscoutScraper:
             for listing_page in asyncio.as_completed(scrape_tasks):
                 yield (await listing_page)
 
-    async def scrape_listings(self, search_url: str) -> list[Listing]:
+    async def scrape_listings(self, search_url: str, max_pages: int = sys.maxsize) -> list[Listing]:
         # Make first request to get starting page and page count
         response: Response = await fetch_listing_page(self.client, search_url, page=1)
         page_data = await response.json()
 
         total_results = page_data["totalResults"]
-        results_per_page = page_data["pageSize"]
         total_pages = page_data["numberOfPages"]
-        print(f"Total results: {total_results}, Results per page: {results_per_page}, Total pages: {total_pages}")
+        total_pages = min(total_pages, max_pages)
+        print(f"Found {total_results} listings on {total_pages} pages. Scraping {max_pages} pages.")
 
-        total_pages = 1
         # Kick off requests for all pages
         parsed_listings = []
         for page in range(1, total_pages + 1):
@@ -75,24 +75,3 @@ class ImmoscoutScraper:
                 parsed_listings.append(property_model)
 
         return parsed_listings
-
-
-async def main():
-    from pathlib import Path
-    from immoscout_scraper.url_conversion import convert_web_to_mobile
-
-    db = PropertyDatabase(Path("properties.db"))
-    existing_ids = db.fetch_saved_listing_ids()
-    print(f"Already scraped {existing_ids} listings.")
-
-    client = create_client()
-    scraper = ImmoscoutScraper(client, existing_ids, max_requests_per_second=16)
-    new_properties = await scraper.scrape_listings(
-        convert_web_to_mobile("https://www.immobilienscout24.de/Suche/de/berlin/berlin/wohnung-mieten")
-    )
-
-    db.save_listings(new_properties)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

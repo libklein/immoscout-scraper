@@ -2,68 +2,181 @@
 
 [![Release](https://img.shields.io/github/v/release/libklein/immoscout-scraper)](https://img.shields.io/github/v/release/libklein/immoscout-scraper)
 [![Build status](https://img.shields.io/github/actions/workflow/status/libklein/immoscout-scraper/main.yml?branch=main)](https://github.com/libklein/immoscout-scraper/actions/workflows/main.yml?query=branch%3Amain)
-[![Commit activity](https://img.shields.io/github/commit-activity/m/libklein/immoscout-scraper)](https://img.shields.io/github/commit-activity/m/libklein/immoscout-scraper)
 [![License](https://img.shields.io/github/license/libklein/immoscout-scraper)](https://img.shields.io/github/license/libklein/immoscout-scraper)
 
 Scrapes rental properties listed on <www.immoscout24.de>
 
 - **Github repository**: <https://github.com/libklein/immoscout-scraper/>
-- **Documentation** <https://libklein.github.io/immoscout-scraper/>
 
-## Getting started with your project
+## Installation
 
-### 1. Create a New Repository
-
-First, create a repository on GitHub with the same name as this project, and then run the following commands:
+### Using uv (recommended)
 
 ```bash
-git init -b main
-git add .
-git commit -m "init commit"
-git remote add origin git@github.com:libklein/immoscout-scraper.git
-git push -u origin main
+git clone https://github.com/libklein/immoscout-scraper.git
+cd immoscout-scraper
+uv sync
 ```
 
-### 2. Set Up Your Development Environment
+### Using pip
 
-Then, install the environment and the pre-commit hooks with
+```bash
+pip install immoscout-scraper
+```
 
+## Usage
+
+### Command Line Interface
+
+The scraper provides a command-line interface with support for arguments and environment variables.
+
+#### Basic Usage
+
+```bash
+# Using uv
+uv run immoscout-scraper "https://www.immobilienscout24.de/Suche/de/berlin/berlin/wohnung-mieten"
+
+# If installed via pip
+immoscout-scraper "https://www.immobilienscout24.de/Suche/de/berlin/berlin/wohnung-mieten"
+```
+
+#### With Options
+
+```bash
+immoscout-scraper \
+  "https://www.immobilienscout24.de/Suche/de/berlin/berlin/wohnung-mieten" \
+  --output-path ./my-properties.db \
+  --max-requests-per-second 10 \
+  --max-pages 5
+```
+
+### Environment Variables
+
+All CLI arguments can be configured using environment variables with the `IMMOSCOUT_SCRAPER_` prefix:
+
+| Environment Variable | CLI Argument | Default | Description |
+|---------------------|--------------|---------|-------------|
+| `IMMOSCOUT_SCRAPER_SEARCH_URL` | `search_url` | *required* | ImmoScout24 search URL to scrape |
+| `IMMOSCOUT_SCRAPER_OUTPUT_PATH` | `--output-path` | `properties.db` | Path to SQLite database file |
+| `IMMOSCOUT_SCRAPER_MAX_REQUESTS_PER_SECOND` | `--max-requests-per-second` | `16` | Rate limit for API requests |
+| `IMMOSCOUT_SCRAPER_MAX_PAGES` | `--max-pages` | `unlimited` | Maximum number of pages to scrape |
+
+## Docker Usage
+
+```bash
+docker run --rm \
+  -v $(pwd)/data:/out \
+  libklein/immoscout-scraper \
+  "https://www.immobilienscout24.de/Suche/de/berlin/berlin/wohnung-mieten"
+```
+
+### Using Environment Variables
+
+```bash
+docker run --rm \
+  -v $(pwd)/data:/out \
+  -e IMMOSCOUT_SCRAPER_SEARCH_URL="https://www.immobilienscout24.de/Suche/de/berlin/berlin/wohnung-mieten" \
+  -e IMMOSCOUT_SCRAPER_MAX_PAGES="20" \
+  libklein/immoscout-scraper
+```
+
+### Docker Compose Example
+
+```yaml
+version: '3.8'
+services:
+  scraper:
+    image: libklein/immoscout-scraper
+    environment:
+      - IMMOSCOUT_SCRAPER_SEARCH_URL=https://www.immobilienscout24.de/Suche/de/berlin/berlin/wohnung-mieten
+      - IMMOSCOUT_SCRAPER_MAX_REQUESTS_PER_SECOND=16
+      - IMMOSCOUT_SCRAPER_MAX_PAGES=20
+    volumes:
+      - ./data:/out
+```
+
+### Docker Environment Variables
+
+The Docker container comes with the following pre-configured environment variables:
+
+- `IMMOSCOUT_SCRAPER_OUTPUT_PATH=/out/properties.db` - Saves database to mounted volume
+- `IMMOSCOUT_SCRAPER_MAX_REQUESTS_PER_SECOND=16` - Conservative rate limiting
+
+## Development
+
+### Setting Up Development Environment
+
+1. Clone the repository:
+```bash
+git clone https://github.com/libklein/immoscout-scraper.git
+cd immoscout-scraper
+```
+
+2. Install dependencies and pre-commit hooks:
 ```bash
 make install
 ```
 
-This will also generate your `uv.lock` file
-
-### 3. Run the pre-commit hooks
-
-Initially, the CI/CD pipeline might be failing due to formatting issues. To resolve those run:
-
+3. Run pre-commit hooks:
 ```bash
 uv run pre-commit run -a
 ```
 
-### 4. Commit the changes
-
-Lastly, commit the changes made by the two steps above to your repository.
+### Running Tests
 
 ```bash
-git add .
-git commit -m 'Fix formatting issues'
-git push origin main
+uv run pytest
 ```
 
-You are now ready to start development on your project!
-The CI/CD pipeline will be triggered when you open a pull request, merge to main, or when you create a new release.
+### Code Formatting
 
-To finalize the set-up for publishing to PyPI, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/publishing/#set-up-for-pypi).
-For activating the automatic documentation with MkDocs, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/mkdocs/#enabling-the-documentation-on-github).
-To enable the code coverage reports, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/codecov/).
+```bash
+uv run ruff format
+uv run ruff check --fix
+```
+
+## URL Requirements
+
+- The scraper only accepts URLs from `www.immobilienscout24.de` domain
+- URLs from `api.mobile.immobilienscout24.de` are not accepted (these are converted automatically)
+- Search URLs should be in the format: `https://www.immobilienscout24.de/Suche/de/...`
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and formatting
+5. Submit a pull request
+
+## License
+
+This project is licensed under the terms specified in the LICENSE file.
 
 ## Releasing a new version
 
+### Prerequisites
+
+Before releasing, you need to set up the following secrets in your GitHub repository:
+
+#### PyPI Publishing
 - Create an API Token on [PyPI](https://pypi.org/).
 - Add the API Token to your projects secrets with the name `PYPI_TOKEN` by visiting [this page](https://github.com/libklein/immoscout-scraper/settings/secrets/actions/new).
+
+#### Docker Hub Publishing
+- Create a [Docker Hub](https://hub.docker.com/) account if you don't have one
+- Add the following secrets to your repository:
+  - `DOCKER_USERNAME`: Your Docker Hub username
+  - `DOCKER_PASSWORD`: Your Docker Hub password or access token
+
+### Creating a Release
+
 - Create a [new release](https://github.com/libklein/immoscout-scraper/releases/new) on Github.
 - Create a new tag in the form `*.*.*`.
 
-For more details, see [here](https://fpgmaas.github.io/cookiecutter-uv/features/cicd/#how-to-trigger-a-release).
+The release workflow will automatically:
+1. Update the project version in `pyproject.toml`
+2. Build and publish the Python package to PyPI
+3. Build and push multi-platform Docker images to Docker Hub with tags:
+   - `libklein/immoscout-scraper:latest`
+   - `libklein/immoscout-scraper:x.x.x` (version tag)
