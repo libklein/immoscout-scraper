@@ -5,8 +5,9 @@ from collections.abc import AsyncGenerator
 
 from aiolimiter import AsyncLimiter
 from rnet import Client, Response
+from tenacity import retry, stop_after_attempt, wait_exponential
 
-from immoscout_scraper.models import RawListing, ListingID
+from immoscout_scraper.models import ListingID, RawProperty
 from immoscout_scraper.url_conversion import get_expose_details_url, get_page_url
 
 logging.basicConfig(level=logging.INFO)
@@ -17,6 +18,7 @@ def parse_listings_page(page_data: dict) -> set[ListingID]:
     return {int(result_item["item"]["id"]) for result_item in results if result_item["type"] == "EXPOSE_RESULT"}
 
 
+@retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(5))
 async def fetch_listing_page(client: Client, search_url: str, page: int) -> Response:
     return await client.post(get_page_url(search_url, page=page), json={"supportedResultListType": [], "userData": {}})
 
@@ -29,13 +31,14 @@ class ImmoscoutScraper:
         self.already_scraped = already_scraped or set()
         self.limiter = AsyncLimiter(max_requests_per_second, time_period=1)
 
-    async def handle_listing_details(self, listing_id: ListingID) -> RawListing:
+    @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(5))
+    async def handle_listing_details(self, listing_id: ListingID) -> RawProperty:
         async with self.limiter:
             data = await (await self.client.get(get_expose_details_url(listing_id))).json()
             # Mock implementation for the sake of example
-            return RawListing(listing_id=data["header"]["id"], data=data)
+            return RawProperty(listing_id=data["header"]["id"], data=data)
 
-    async def handle_listing_page(self, search_url: str, page: int) -> AsyncGenerator[RawListing, None]:
+    async def handle_listing_page(self, search_url: str, page: int) -> AsyncGenerator[RawProperty, None]:
         response: Response = await fetch_listing_page(self.client, search_url, page)
 
         listing_ids = parse_listings_page(await response.json())
@@ -50,7 +53,7 @@ class ImmoscoutScraper:
             for listing_page in asyncio.as_completed(scrape_tasks):
                 yield (await listing_page)
 
-    async def scrape_listings(self, search_url: str, max_pages: int = sys.maxsize) -> list[RawListing]:
+    async def scrape_listings(self, search_url: str, max_pages: int = sys.maxsize) -> list[RawProperty]:
         # Make first request to get starting page and page count
         response: Response = await fetch_listing_page(self.client, search_url, page=1)
         page_data = await response.json()

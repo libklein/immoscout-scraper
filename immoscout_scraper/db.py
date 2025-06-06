@@ -1,25 +1,24 @@
-import json
-import sqlite3
 from pathlib import Path
 
-from immoscout_scraper.models import RawListing, ListingID
+from sqlmodel import Session, SQLModel, create_engine, select
+
+from immoscout_scraper.models import ListingID, Property, RawProperty, parse_property
 
 
 class PropertyDatabase:
     def __init__(self, db_path: Path):
-        self.connection = sqlite3.connect(db_path)
-        self.cursor = self.connection.cursor()
-        self._setup()
+        self.engine = create_engine(f"sqlite:///{db_path}", echo=False)
+        SQLModel.metadata.create_all(self.engine)
 
-    def _setup(self) -> None:
-        self.cursor.execute("CREATE TABLE IF NOT EXISTS RawProperties (id INTEGER PRIMARY KEY, data JSON)")
+    def save_listings(self, listings: list[RawProperty]) -> None:
+        with Session(self.engine) as session:
+            session.add_all(listings)
 
-    def save_listings(self, listings: list[RawListing]) -> None:
-        self.cursor.executemany(
-            "INSERT INTO RawProperties VALUES (:listing_id, :data)",
-            ({"listing_id": x.listing_id, "data": json.dumps(x.data)} for x in listings),
-        )
-        self.connection.commit()
+            for listing in listings:
+                session.add(parse_property(listing.data))
+
+            session.commit()
 
     def fetch_saved_listing_ids(self) -> set[ListingID]:
-        return {x[0] for x in self.cursor.execute("SELECT id FROM RawProperties").fetchall()}
+        with Session(self.engine) as session:
+            return set(session.exec(select(Property.listing_id)).all())

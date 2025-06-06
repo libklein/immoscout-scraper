@@ -2,15 +2,16 @@ import re
 from datetime import date, datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import ConfigDict, field_validator
 from pydantic.alias_generators import to_snake
+from sqlmodel import JSON, Field, SQLModel
 
 ListingID = int
 
 
-class RawListing(BaseModel):
-    listing_id: ListingID
-    data: dict
+class RawProperty(SQLModel, table=True):
+    listing_id: ListingID = Field(primary_key=True, index=True)
+    data: dict = Field(sa_type=JSON)
 
 
 def parse_currency(value: str) -> float:
@@ -35,8 +36,8 @@ def parse_currency(value: str) -> float:
         return 0.0
 
 
-class PropertyModel(BaseModel):
-    listing_id: int
+class Property(SQLModel, table=True):
+    listing_id: ListingID = Field(primary_key=True, index=True)
     scraped_on: datetime
     publication_state: str
     real_estate_type: str
@@ -76,11 +77,11 @@ class PropertyModel(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_snake,
         populate_by_name=True,
-    )
+    )  # type: ignore[assignment]
 
     @field_validator("net_rent_plus_ancillary_costs", "price_per_sqm", "ancillary_costs", "deposit", mode="before")
     def _parse_currency(cls, v: Any) -> Optional[float]:
-        if isinstance(v, str):
+        if isinstance(v, str) and v.strip().lower() != "unknown":
             return parse_currency(v)
         elif isinstance(v, (int, float)):
             return float(v)
@@ -89,11 +90,7 @@ class PropertyModel(BaseModel):
     @field_validator(
         "rooms",
         "living_space",
-        "net_rent_plus_ancillary_costs",
-        "price_per_sqm",
-        "ancillary_costs",
         "heating_costs_included",
-        "deposit",
         "apartment_type",
         "floor",
         "sleeping_rooms",
@@ -136,7 +133,7 @@ class PropertyModel(BaseModel):
         return None
 
 
-def parse_property(data: dict[str, Any]) -> PropertyModel:
+def parse_property(data: dict[str, Any]) -> Property:
     sections = data.get("sections", [])
 
     # HEADER
@@ -289,38 +286,40 @@ def parse_property(data: dict[str, Any]) -> PropertyModel:
                         energy_efficiency_category = text or "unknown"
             break
 
-    return PropertyModel(
-        listing_id=listing_id,
-        scraped_on=datetime.now(),
-        publication_state=publication_state,
-        real_estate_type=real_estate_type,
-        listing_title=listing_title,
-        address=address,
-        latitude=latitude,
-        longitude=longitude,
-        basic_rent=basic_rent,
-        rooms=rooms,
-        living_space=living_space,
-        total_rent=total_rent,
-        net_rent_plus_ancillary_costs=net_rent_plus_ancillary,
-        price_per_sqm=price_per_sqm,
-        ancillary_costs=ancillary_costs,
-        heating_costs_included=heating_costs_included,
-        deposit=deposit,
-        apartment_type=apartment_type,
-        floor=floor,
-        sleeping_rooms=sleeping_rooms,
-        bathrooms=bathrooms,
-        vacant_from=vacant_from,
-        pets=pets,
-        balcony_terrace=balcony_terrace,
-        elevator=elevator,
-        fitted_kitchen=fitted_kitchen,
-        construction_year=construction_year,
-        object_state=object_state,
-        interior_quality=interior_quality,
-        type_of_heating=type_of_heating,
-        energy_identification_type=energy_identification_type,
-        end_energy_demand=end_energy_demand,
-        energy_efficiency_category=energy_efficiency_category,
+    return Property.model_validate(
+        dict(
+            listing_id=listing_id,
+            scraped_on=datetime.now(),
+            publication_state=publication_state,
+            real_estate_type=real_estate_type,
+            listing_title=listing_title,
+            address=address,
+            latitude=latitude,
+            longitude=longitude,
+            basic_rent=basic_rent,
+            rooms=rooms,
+            living_space=living_space,
+            total_rent=total_rent,
+            net_rent_plus_ancillary_costs=net_rent_plus_ancillary,
+            price_per_sqm=price_per_sqm,
+            ancillary_costs=ancillary_costs,
+            heating_costs_included=heating_costs_included,
+            deposit=deposit,
+            apartment_type=apartment_type,
+            floor=floor,
+            sleeping_rooms=sleeping_rooms,
+            bathrooms=bathrooms,
+            vacant_from=vacant_from,
+            pets=pets,
+            balcony_terrace=balcony_terrace,
+            elevator=elevator,
+            fitted_kitchen=fitted_kitchen,
+            construction_year=construction_year,
+            object_state=object_state,
+            interior_quality=interior_quality,
+            type_of_heating=type_of_heating,
+            energy_identification_type=energy_identification_type,
+            end_energy_demand=end_energy_demand,
+            energy_efficiency_category=energy_efficiency_category,
+        )
     )

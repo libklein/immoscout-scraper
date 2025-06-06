@@ -1,4 +1,4 @@
-from furl import furl
+from furl import furl  # type: ignore[import-untyped]
 
 
 def convert_web_to_mobile(web_url: str) -> str:
