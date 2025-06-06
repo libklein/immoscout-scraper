@@ -2,7 +2,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-from immoscout_scraper.models import Listing, ListingID
+from immoscout_scraper.models import RawListing, ListingID
 
 
 class PropertyDatabase:
@@ -14,7 +14,7 @@ class PropertyDatabase:
     def _setup(self) -> None:
         self.cursor.execute("CREATE TABLE IF NOT EXISTS RawProperties (id INTEGER PRIMARY KEY, data JSON)")
 
-    def save_listings(self, listings: list[Listing]) -> None:
+    def save_listings(self, listings: list[RawListing]) -> None:
         self.cursor.executemany(
             "INSERT INTO RawProperties VALUES (:listing_id, :data)",
             ({"listing_id": x.listing_id, "data": json.dumps(x.data)} for x in listings),

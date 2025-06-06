@@ -10,6 +10,7 @@ from rnet import Client, Impersonate
 from immoscout_scraper.db import PropertyDatabase
 from immoscout_scraper.scrape import ImmoscoutScraper
 from immoscout_scraper.url_conversion import convert_web_to_mobile
+from immoscout_scraper.models import RawListing, PropertyModel, parse_property
 
 app = typer.Typer(
     name="immoscout-scraper",
@@ -112,6 +113,12 @@ async def _async_scrape(search_url: str, output_path: Path, max_requests_per_sec
         # Save results
         db.save_listings(new_properties)
         typer.echo(f"Successfully scraped and saved {len(new_properties)} new properties!")
+
+        for i in new_properties:
+            property_data = parse_property(i.data)
+            typer.echo(
+                f"Property ID: {property_data.listing_id}, Title: {property_data.listing_title}, Address: {property_data.address}"
+            )
 
     except Exception as e:
         typer.echo(f"Error during scraping: {e}", err=True)
