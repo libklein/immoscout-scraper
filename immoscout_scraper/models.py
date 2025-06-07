@@ -2,9 +2,9 @@ import re
 from datetime import date, datetime
 from typing import Any, Optional
 
-from pydantic import ConfigDict, field_validator
+from pydantic import AnyHttpUrl, ConfigDict, field_validator
 from pydantic.alias_generators import to_snake
-from sqlmodel import JSON, Field, SQLModel
+from sqlmodel import JSON, Column, Field, SQLModel, String
 
 ListingID = int
 
@@ -47,7 +47,7 @@ class Property(SQLModel, table=True):
     longitude: float
 
     basic_rent: float
-    rooms: Optional[int]
+    rooms: Optional[float]
     living_space: Optional[float]
     total_rent: float
     net_rent_plus_ancillary_costs: Optional[float]
@@ -73,6 +73,8 @@ class Property(SQLModel, table=True):
     energy_identification_type: Optional[str]
     end_energy_demand: Optional[float]
     energy_efficiency_category: Optional[str]
+
+    floor_plan: Optional[AnyHttpUrl] = Field(default=None, sa_column=Column(String))
 
     model_config = ConfigDict(
         alias_generator=to_snake,
@@ -286,6 +288,17 @@ def parse_property(data: dict[str, Any]) -> Property:
                         energy_efficiency_category = text or "unknown"
             break
 
+    # MEDIA section → pictures and floorplan
+    floorplan: Optional[str] = None
+    for section in sections:
+        if section.get("type") == "MEDIA":
+            for media in section.get("media", []):
+                mtype = media.get("type", "")
+                url = media.get("fullImageUrl", "")
+                if mtype.upper() in {"FLOORPLAN", "FLOOR_PLAN"} and url:
+                    floorplan = url
+            break
+
     return Property.model_validate(
         dict(
             listing_id=listing_id,
@@ -321,5 +334,6 @@ def parse_property(data: dict[str, Any]) -> Property:
             energy_identification_type=energy_identification_type,
             end_energy_demand=end_energy_demand,
             energy_efficiency_category=energy_efficiency_category,
+            floor_plan=floorplan,
         )
     )

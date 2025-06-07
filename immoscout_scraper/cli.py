@@ -8,6 +8,7 @@ from furl import furl  # type: ignore[import-untyped]
 from rnet import Client, Impersonate
 
 from immoscout_scraper.db import PropertyDatabase
+from immoscout_scraper.models import RawProperty, parse_property
 from immoscout_scraper.scrape import ImmoscoutScraper
 from immoscout_scraper.url_conversion import convert_web_to_mobile
 
@@ -59,7 +60,6 @@ def scrape(
         int,
         typer.Option(
             "--max-requests-per-second",
-            "-r",
             help="Maximum number of requests per second",
             envvar="IMMOSCOUT_SCRAPER_MAX_REQUESTS_PER_SECOND",
             min=1,
@@ -69,12 +69,20 @@ def scrape(
         int,
         typer.Option(
             "--max-pages",
-            "-m",
             help="Maximum number of pages to scrape",
             envvar="IMMOSCOUT_SCRAPER_MAX_PAGES",
             min=1,
         ),
     ] = sys.maxsize,
+    chunksize: Annotated[
+        int,
+        typer.Option(
+            "--chunksize",
+            help="Number of properties to save in one batch",
+            envvar="IMMOSCOUT_SCRAPER_CHUNKSIZE",
+            min=1,
+        ),
+    ] = 100,
 ) -> None:
     """Scrape rental properties from ImmoScout24 using the provided search URL."""
 
@@ -82,10 +90,36 @@ def scrape(
     if output_path is None:
         output_path = Path("properties.db")
 
-    asyncio.run(_async_scrape(search_url, output_path, max_requests_per_second, max_pages))
+    asyncio.run(_async_scrape(search_url, output_path, max_requests_per_second, max_pages, chunksize))
 
 
-async def _async_scrape(search_url: str, output_path: Path, max_requests_per_second: int, max_pages: int) -> None:
+def save_properties(db: PropertyDatabase, raw_properties: list[RawProperty]) -> None:
+    # Attempt to parse and save properties
+    parsed_properties = []
+    for raw_property in raw_properties:
+        try:
+            parsed_properties.append(parse_property(raw_property.data))
+        except Exception as e:
+            typer.echo(f"Error parsing property: {e}", err=True)
+
+    if len(parsed_properties) != len(raw_properties):
+        typer.echo(f"Failed to parse {len(raw_properties) - len(parsed_properties)} properties.", err=True)
+
+    try:
+        db.save_properties(parsed_properties)
+    except Exception as e:
+        typer.echo(f"Error saving parsed properties to database: {e}", err=True)
+
+    # Finally, save raw properties. Order is important.
+    try:
+        db.save_raw_properties(raw_properties)
+    except Exception as e:
+        typer.echo(f"Error saving properties to database: {e}", err=True)
+
+
+async def _async_scrape(
+    search_url: str, output_path: Path, max_requests_per_second: int, max_pages: int, chunksize: int
+) -> None:
     """Async wrapper for the scraping logic."""
 
     typer.echo("Starting scraper with:")
@@ -107,12 +141,19 @@ async def _async_scrape(search_url: str, output_path: Path, max_requests_per_sec
     typer.echo(f"Converted URL to mobile format: {mobile_url}")
 
     try:
-        new_properties = await scraper.scrape_listings(mobile_url, max_pages)
-        typer.echo(f"Successfully scraped {len(new_properties)} new properties!")
+        total_scraped = 0
+        raw_properties = []
+        async for raw_property in scraper.scrape_listings(mobile_url, max_pages):
+            raw_properties.append(raw_property)
+            total_scraped += 1
+            if len(raw_properties) >= chunksize:
+                save_properties(db, raw_properties)
+                raw_properties.clear()
 
-        # Save results
-        db.save_listings(new_properties)
+        if raw_properties:
+            save_properties(db, raw_properties)
 
+        typer.echo(f"Successfully scraped {total_scraped} new properties!")
         typer.echo(f"Results saved to {output_path}")
 
     except Exception as e:

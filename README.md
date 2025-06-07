@@ -60,6 +60,7 @@ All CLI arguments can be configured using environment variables with the `IMMOSC
 | `IMMOSCOUT_SCRAPER_OUTPUT_PATH` | `--output-path` | `properties.db` | Path to SQLite database file |
 | `IMMOSCOUT_SCRAPER_MAX_REQUESTS_PER_SECOND` | `--max-requests-per-second` | `16` | Rate limit for API requests |
 | `IMMOSCOUT_SCRAPER_MAX_PAGES` | `--max-pages` | `unlimited` | Maximum number of pages to scrape |
+| `IMMOSCOUT_SCRAPER_CHUNKSIZE` | `--chunksize` | 100 | Save eagerly after scraping this many properties |
 
 ## Docker Usage
 

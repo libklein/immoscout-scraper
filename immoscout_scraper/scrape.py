@@ -43,7 +43,6 @@ class ImmoscoutScraper:
 
         listing_ids = parse_listings_page(await response.json())
         listing_ids_to_scrape = listing_ids - self.already_scraped
-        print(f"Found {listing_ids_to_scrape} new listings on page {page}.")
 
         # Request pages - should return any results as soon as it is available
         async with self.limiter:
@@ -53,20 +52,17 @@ class ImmoscoutScraper:
             for listing_page in asyncio.as_completed(scrape_tasks):
                 yield (await listing_page)
 
-    async def scrape_listings(self, search_url: str, max_pages: int = sys.maxsize) -> list[RawProperty]:
+    async def scrape_listings(self, search_url: str, max_pages: int = sys.maxsize) -> AsyncGenerator[RawProperty, None]:
         # Make first request to get starting page and page count
         response: Response = await fetch_listing_page(self.client, search_url, page=1)
         page_data = await response.json()
 
         total_results = page_data["totalResults"]
         total_pages = page_data["numberOfPages"]
-        total_pages = min(total_pages, max_pages)
-        print(f"Found {total_results} listings on {total_pages} pages. Scraping {max_pages} pages.")
+        total_pages_to_scrape = min(total_pages, max_pages)
+        print(f"Found {total_results} listings on {total_pages} pages. Scraping {total_pages_to_scrape} pages.")
 
         # Kick off requests for all pages
-        parsed_listings = []
-        for page in range(1, total_pages + 1):
+        for page in range(1, total_pages_to_scrape + 1):
             async for property_model in self.handle_listing_page(search_url, page):
-                parsed_listings.append(property_model)
-
-        return parsed_listings
+                yield property_model

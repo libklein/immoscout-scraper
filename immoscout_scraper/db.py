@@ -2,7 +2,7 @@ from pathlib import Path
 
 from sqlmodel import Session, SQLModel, create_engine, select
 
-from immoscout_scraper.models import ListingID, Property, RawProperty, parse_property
+from immoscout_scraper.models import ListingID, Property, RawProperty
 
 
 class PropertyDatabase:
@@ -10,15 +10,16 @@ class PropertyDatabase:
         self.engine = create_engine(f"sqlite:///{db_path}", echo=False)
         SQLModel.metadata.create_all(self.engine)
 
-    def save_listings(self, listings: list[RawProperty]) -> None:
+    def save_raw_properties(self, listings: list[RawProperty]) -> None:
         with Session(self.engine) as session:
             session.add_all(listings)
+            session.commit()
 
-            for listing in listings:
-                session.add(parse_property(listing.data))
-
+    def save_properties(self, properties: list[Property]) -> None:
+        with Session(self.engine) as session:
+            session.add_all(properties)
             session.commit()
 
     def fetch_saved_listing_ids(self) -> set[ListingID]:
         with Session(self.engine) as session:
-            return set(session.exec(select(Property.listing_id)).all())
+            return set(session.exec(select(RawProperty.listing_id)).all())
