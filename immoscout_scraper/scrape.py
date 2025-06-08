@@ -49,7 +49,6 @@ class ImmoscoutScraper:
     async def handle_listing_details(self, listing_id: ListingID) -> RawProperty:
         async with self.limiter:
             data = await fetch_property_details(self.client, listing_id)
-            # Mock implementation for the sake of example
             return RawProperty(listing_id=data["header"]["id"], data=data)
 
     async def handle_listing_page(self, search_url: str, page: int) -> AsyncGenerator[RawProperty, None]:

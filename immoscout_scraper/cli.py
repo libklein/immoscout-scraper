@@ -101,7 +101,7 @@ def scrape(
     asyncio.run(_async_scrape(search_url, output_path, max_requests_per_second, max_pages, chunksize, rescrape))
 
 
-def save_properties(db: PropertyDatabase, raw_properties: list[RawProperty]) -> None:
+def save_properties(db: PropertyDatabase, raw_properties: list[RawProperty], upsert: bool = False) -> None:
     # Attempt to parse and save properties
     parsed_properties = []
     for raw_property in raw_properties:
@@ -114,13 +114,13 @@ def save_properties(db: PropertyDatabase, raw_properties: list[RawProperty]) -> 
         typer.echo(f"Failed to parse {len(raw_properties) - len(parsed_properties)} properties.", err=True)
 
     try:
-        db.save_properties(parsed_properties)
+        db.save_properties(parsed_properties, upsert=upsert)
     except Exception as e:
         typer.echo(f"Error saving parsed properties to database: {e}", err=True)
 
     # Finally, save raw properties. Order is important.
     try:
-        db.save_raw_properties(raw_properties)
+        db.save_raw_properties(raw_properties, upsert=upsert)
     except Exception as e:
         typer.echo(f"Error saving properties to database: {e}", err=True)
 
@@ -166,11 +166,11 @@ async def _async_scrape(
             raw_properties.append(raw_property)
             total_scraped += 1
             if len(raw_properties) >= chunksize:
-                save_properties(db, raw_properties)
+                save_properties(db, raw_properties, upsert=rescrape)
                 raw_properties.clear()
 
         if raw_properties:
-            save_properties(db, raw_properties)
+            save_properties(db, raw_properties, upsert=rescrape)
 
         typer.echo(f"Successfully scraped {total_scraped} new properties!")
         typer.echo(f"Results saved to {output_path}")

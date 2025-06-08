@@ -1,0 +1,13 @@
+version: "3.8"
+
+services:
+  scraper:
+    image: libklein/immoscout-scraper
+    env_file:
+      - .env
+    volumes:
+      - immoscout-scraper-db:/out
+
+volumes:
+  immoscout-scraper-db:
+    name: immoscout-scraper-db
