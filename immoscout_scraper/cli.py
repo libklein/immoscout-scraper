@@ -83,6 +83,14 @@ def scrape(
             min=1,
         ),
     ] = 100,
+    rescrape: Annotated[
+        bool,
+        typer.Option(
+            "--rescrape",
+            help="Ignore previously scraped properties and scrape all properties again",
+            envvar="IMMOSCOUT_SCRAPER_RESCRAPE",
+        ),
+    ] = False,
 ) -> None:
     """Scrape rental properties from ImmoScout24 using the provided search URL."""
 
@@ -90,7 +98,7 @@ def scrape(
     if output_path is None:
         output_path = Path("properties.db")
 
-    asyncio.run(_async_scrape(search_url, output_path, max_requests_per_second, max_pages, chunksize))
+    asyncio.run(_async_scrape(search_url, output_path, max_requests_per_second, max_pages, chunksize, rescrape))
 
 
 def save_properties(db: PropertyDatabase, raw_properties: list[RawProperty]) -> None:
@@ -118,7 +126,7 @@ def save_properties(db: PropertyDatabase, raw_properties: list[RawProperty]) -> 
 
 
 async def _async_scrape(
-    search_url: str, output_path: Path, max_requests_per_second: int, max_pages: int, chunksize: int
+    search_url: str, output_path: Path, max_requests_per_second: int, max_pages: int, chunksize: int, rescrape: bool
 ) -> None:
     """Async wrapper for the scraping logic."""
 
@@ -127,10 +135,15 @@ async def _async_scrape(
     typer.echo(f"  Output path: {output_path}")
     typer.echo(f"  Max requests per second: {max_requests_per_second}")
     typer.echo(f"  Max pages: {max_pages}")
+    typer.echo(f"  Rescrape: {rescrape}")
     # Initialize database and get existing IDs
     db = PropertyDatabase(output_path)
-    existing_ids = db.fetch_saved_listing_ids()
-    typer.echo(f"Already scraped {len(existing_ids)} listings.")
+    existing_ids = set()
+    if not rescrape:
+        existing_ids = db.fetch_saved_listing_ids()
+        typer.echo(f"Already scraped {len(existing_ids)} listings.")
+    else:
+        typer.echo("Rescrape mode enabled: ignoring previously scraped listings.")
 
     # Create client and scraper
     client = create_client()
@@ -141,9 +154,15 @@ async def _async_scrape(
     typer.echo(f"Converted URL to mobile format: {mobile_url}")
 
     try:
+        listing_counts = await scraper.get_number_of_listings(mobile_url)
+        number_of_pages_to_scrape = min(listing_counts.number_of_pages, max_pages)
+        typer.echo(
+            f"Found {listing_counts.total_listings} listings across {listing_counts.number_of_pages} pages. Scraping {number_of_pages_to_scrape} pages, estimated number of properties: {number_of_pages_to_scrape * listing_counts.page_size}."
+        )
+
         total_scraped = 0
         raw_properties = []
-        async for raw_property in scraper.scrape_listings(mobile_url, max_pages):
+        async for raw_property in scraper.scrape_listings(mobile_url, pages=max_pages):
             raw_properties.append(raw_property)
             total_scraped += 1
             if len(raw_properties) >= chunksize:
