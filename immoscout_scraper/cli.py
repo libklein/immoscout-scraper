@@ -48,14 +48,14 @@ def scrape(
         ),
     ],
     output_path: Annotated[
-        Optional[Path],
+        Path,
         typer.Option(
             "--output-path",
             "-o",
             help="Path to the SQLite database file",
             envvar="IMMOSCOUT_SCRAPER_OUTPUT_PATH",
         ),
-    ] = None,
+    ] = Path("properties.db"),
     max_requests_per_second: Annotated[
         int,
         typer.Option(
@@ -66,14 +66,14 @@ def scrape(
         ),
     ] = 16,
     max_pages: Annotated[
-        int,
+        Optional[int],
         typer.Option(
             "--max-pages",
             help="Maximum number of pages to scrape",
             envvar="IMMOSCOUT_SCRAPER_MAX_PAGES",
             min=1,
         ),
-    ] = sys.maxsize,
+    ] = None,
     chunksize: Annotated[
         int,
         typer.Option(
@@ -98,7 +98,9 @@ def scrape(
     if output_path is None:
         output_path = Path("properties.db")
 
-    asyncio.run(_async_scrape(search_url, output_path, max_requests_per_second, max_pages, chunksize, rescrape))
+    asyncio.run(
+        _async_scrape(search_url, output_path, max_requests_per_second, max_pages or sys.maxsize, chunksize, rescrape)
+    )
 
 
 def save_properties(db: PropertyDatabase, raw_properties: list[RawProperty], upsert: bool = False) -> None:
@@ -162,7 +164,7 @@ async def _async_scrape(
 
         total_scraped = 0
         raw_properties = []
-        async for raw_property in scraper.scrape_listings(mobile_url, pages=max_pages):
+        async for raw_property in scraper.scrape_listings(mobile_url, pages=number_of_pages_to_scrape):
             raw_properties.append(raw_property)
             total_scraped += 1
             if len(raw_properties) >= chunksize:
@@ -176,6 +178,7 @@ async def _async_scrape(
         typer.echo(f"Results saved to {output_path}")
 
     except Exception as e:
+        # Print stack trace
         typer.echo(f"Error during scraping: {e}", err=True)
         raise typer.Exit(1)
 

@@ -2,8 +2,6 @@
 FROM python:3.12-slim
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-ENV IMMOSCOUT_SCRAPER_OUTPUT_PATH=/out/properties.db
-
 # Change the working directory to the `app` directory
 WORKDIR /app
 
