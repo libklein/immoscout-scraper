@@ -108,17 +108,20 @@ The Docker container comes with the following pre-configured environment variabl
 ### Setting Up Development Environment
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/libklein/immoscout-scraper.git
 cd immoscout-scraper
 ```
 
 2. Install dependencies and pre-commit hooks:
+
 ```bash
 make install
 ```
 
 3. Run pre-commit hooks:
+
 ```bash
 uv run pre-commit run -a
 ```
@@ -141,43 +144,3 @@ uv run ruff check --fix
 - The scraper only accepts URLs from `www.immobilienscout24.de` domain
 - URLs from `api.mobile.immobilienscout24.de` are not accepted (these are converted automatically)
 - Search URLs should be in the format: `https://www.immobilienscout24.de/Suche/de/...`
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and formatting
-5. Submit a pull request
-
-## License
-
-This project is licensed under the terms specified in the LICENSE file.
-
-## Releasing a new version
-
-### Prerequisites
-
-Before releasing, you need to set up the following secrets in your GitHub repository:
-
-#### PyPI Publishing
-- Create an API Token on [PyPI](https://pypi.org/).
-- Add the API Token to your projects secrets with the name `PYPI_TOKEN` by visiting [this page](https://github.com/libklein/immoscout-scraper/settings/secrets/actions/new).
-
-#### Docker Hub Publishing
-- Create a [Docker Hub](https://hub.docker.com/) account if you don't have one
-- Add the following secrets to your repository:
-  - `DOCKER_USERNAME`: Your Docker Hub username
-  - `DOCKER_PASSWORD`: Your Docker Hub password or access token
-
-### Creating a Release
-
-- Create a [new release](https://github.com/libklein/immoscout-scraper/releases/new) on Github.
-- Create a new tag in the form `*.*.*`.
-
-The release workflow will automatically:
-1. Update the project version in `pyproject.toml`
-2. Build and publish the Python package to PyPI
-3. Build and push multi-platform Docker images to Docker Hub with tags:
-   - `libklein/immoscout-scraper:latest`
-   - `libklein/immoscout-scraper:x.x.x` (version tag)
