@@ -4,11 +4,10 @@ from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 
 from aiolimiter import AsyncLimiter
-from rnet import Client
+from immoscout_api_client import ImmoscoutAPIClient
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from immoscout_scraper.models import ListingID, RawProperty
-from immoscout_scraper.url_conversion import get_expose_details_url, get_page_url
 
 logging.basicConfig(level=logging.INFO)
 
@@ -26,20 +25,21 @@ def parse_listings_page(page_data: dict) -> set[ListingID]:
 
 
 @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(5))
-async def fetch_listing_page(client: Client, search_url: str, page: int) -> dict:
-    return await (
-        await client.post(get_page_url(search_url, page=page), json={"supportedResultListType": [], "userData": {}})
-    ).json()
+async def fetch_listing_page(client: ImmoscoutAPIClient, search_url: str, page: int) -> dict:
+    return await client.search_list(search_url, page)
 
 
 @retry(wait=wait_exponential(multiplier=1, min=2, max=10), stop=stop_after_attempt(5))
-async def fetch_property_details(client: Client, listing_id: ListingID) -> dict:
-    return await (await client.get(get_expose_details_url(listing_id))).json()
+async def fetch_property_details(client: ImmoscoutAPIClient, listing_id: ListingID) -> dict:
+    return await client.get_property_details(listing_id)
 
 
 class ImmoscoutScraper:
     def __init__(
-        self, client: Client, already_scraped: set[ListingID] | None = None, max_requests_per_second: int = 16
+        self,
+        client: ImmoscoutAPIClient,
+        already_scraped: set[ListingID] | None = None,
+        max_requests_per_second: int = 16,
     ):
         self.client = client
         self.already_scraped = already_scraped or set()

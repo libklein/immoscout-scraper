@@ -5,12 +5,11 @@ from typing import Annotated, Optional
 
 import typer
 from furl import furl  # type: ignore[import-untyped]
-from rnet import Client, Impersonate
+from immoscout_api_client import ImmoscoutAPIClient, convert_web_to_mobile
 
 from immoscout_scraper.db import PropertyDatabase
 from immoscout_scraper.models import RawProperty, parse_property
 from immoscout_scraper.scrape import ImmoscoutScraper
-from immoscout_scraper.url_conversion import convert_web_to_mobile
 
 app = typer.Typer(
     name="immoscout-scraper",
@@ -19,10 +18,8 @@ app = typer.Typer(
 )
 
 
-def create_client() -> Client:
-    return Client(
-        impersonate=Impersonate.OkHttp5,
-        user_agent="ImmoScout24_1410_30_._",
+def create_client() -> ImmoscoutAPIClient:
+    return ImmoscoutAPIClient(
         timeout=30,
     )
 
